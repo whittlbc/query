@@ -23,7 +23,6 @@ const DEFAULT_OPTIONS = {
  * Query client for Spec's shared tables.
  */
 class SpecQueryClient {
-
     protected apiKey: string
 
     protected origin: string
@@ -73,8 +72,8 @@ class SpecQueryClient {
         let resp
         try {
             resp = await this._performQuery(
-                this.queryUrl, 
-                buildSelectQuery(table, filters, options),
+                this.queryUrl,
+                buildSelectQuery(table, filters, options)
             )
         } catch (err) {
             return { error: err as string }
@@ -94,17 +93,13 @@ class SpecQueryClient {
     /**
      * Build and perform a query with streamed results.
      */
-     async stream(
-        table: string,
-        options: SelectOptions,
-        onBatch: onBatchCallback,
-    ) {
+    async stream(table: string, options: SelectOptions, onBatch: onBatchCallback) {
         options = options || {}
         const filters = options.where || []
 
         const resp = await this._performQuery(
             this.streamUrl,
-            buildSelectQuery(table, filters, options),
+            buildSelectQuery(table, filters, options)
         )
 
         await this._handleStreamResponse(resp, onBatch)
@@ -138,7 +133,7 @@ class SpecQueryClient {
 
             // Throw any errors explicitly passed back
             if (obj.error) throw obj.error
-            
+
             // snakecase to camelcase.
             obj = camelizeKeys(obj)
             batch.push(obj)
@@ -184,7 +179,7 @@ class SpecQueryClient {
     async _performQuery(
         url: string,
         payload: QueryPayload | QueryPayload[],
-        attempts: number = 0,
+        attempts: number = 0
     ): Promise<Response> {
         // Set up query timeout timer.
         const abortController = new AbortController()
@@ -199,12 +194,12 @@ class SpecQueryClient {
         }
         clearTimeout(timer)
         if (error) throw error
-        
+
         // Potentially retry.
         const status = resp?.status
-        if (!status || status >= 500 && attempts < 3) {
+        if (!status || (status >= 500 && attempts < 3)) {
             await sleep(500)
-            return await this._performQuery(url, payload, attempts + 1)    
+            return await this._performQuery(url, payload, attempts + 1)
         }
 
         // Failure.
@@ -227,7 +222,7 @@ class SpecQueryClient {
     async _makeRequest(
         url: string,
         payload: StringKeyMap | StringKeyMap[],
-        abortController: AbortController,
+        abortController: AbortController
     ): Promise<Response> {
         try {
             return await fetch(url, {

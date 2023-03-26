@@ -1,13 +1,11 @@
 import {
     SpecTableClientOptions,
     StringKeyMap,
-    QueryPayload,
     SelectOptions,
     QueryResponse,
     onBatchCallback,
 } from './lib/types'
 import config from './lib/config'
-import { buildSelectQuery } from './lib/utils/queryBuilder'
 import fetch, { Response } from 'node-fetch'
 import { sleep } from './lib/utils/time'
 import { JSONParser } from '@streamparser/json'
@@ -62,19 +60,13 @@ class SpecQueryClient {
     }
 
     /**
-     * Build and perform a basic select query for the given table and filters.
+     * Perform a basic select query for the given table and filters.
      */
     async query(table: string, options?: SelectOptions): Promise<QueryResponse> {
-        options = options || {}
-        const filters = options.where || []
-
         // Make initial request.
         let resp
         try {
-            resp = await this._performQuery(
-                this.queryUrl,
-                buildSelectQuery(table, filters, options)
-            )
+            resp = await this._performQuery(this.queryUrl, table, options || {})
         } catch (err) {
             return { error: err as string }
         }
@@ -91,17 +83,18 @@ class SpecQueryClient {
     }
 
     /**
-     * Build and perform a query with streamed results.
+     * Perform a query with streamed results.
      */
     async stream(table: string, options: SelectOptions, onBatch: onBatchCallback) {
-        options = options || {}
-        const filters = options.where || []
+        // Make initial request.
+        let resp
+        try {
+            resp = await this._performQuery(this.streamUrl, table, options || {})
+        } catch (err) {
+            return { error: err as string }
+        }
 
-        const resp = await this._performQuery(
-            this.streamUrl,
-            buildSelectQuery(table, filters, options)
-        )
-
+        // Iterate over readable-stream response.
         await this._handleStreamResponse(resp, onBatch)
     }
 
@@ -178,9 +171,15 @@ class SpecQueryClient {
      */
     async _performQuery(
         url: string,
-        payload: QueryPayload | QueryPayload[],
+        table: string,
+        options: SelectOptions,
         attempts: number = 0
     ): Promise<Response> {
+        // Build payload.
+        options = options || {}
+        const filters = options.where || []
+        const payload = { table, filters, options }
+
         // Set up query timeout timer.
         const abortController = new AbortController()
         const timer = setTimeout(() => abortController.abort(), this.respTimeout)
@@ -199,7 +198,7 @@ class SpecQueryClient {
         const status = resp?.status
         if (!status || (status >= 500 && attempts < 3)) {
             await sleep(500)
-            return await this._performQuery(url, payload, attempts + 1)
+            return await this._performQuery(url, table, options, attempts + 1)
         }
 
         // Failure.
